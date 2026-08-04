@@ -65,6 +65,53 @@ def add_date_features(df):
     return df
 
 
+_PROMO_INTERVAL_MONTH_ABBR = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sept", 10: "Oct", 11: "Nov", 12: "Dec",
+}  # Sept, not Sep — matches the raw PromoInterval strings in store.csv
+
+
+def add_promo_holiday_features(df):
+    """Add IsStateHoliday (bool version of StateHoliday) and Promo2Active
+    (whether the store's continuity promo is running as of this row's
+    Date): Promo2 == 1, the date is on/after the promo's ISO-week start
+    (Promo2SinceYear/Week), and the row's month is one of PromoInterval's
+    months. Requires Year/Month from add_date_features.
+    """
+    df = df.copy()
+    df["IsStateHoliday"] = (df["StateHoliday"] != "0").astype(int)
+
+    iso = df["Date"].dt.isocalendar()
+    started = (iso["year"] > df["Promo2SinceYear"]) | (
+        (iso["year"] == df["Promo2SinceYear"]) & (iso["week"] >= df["Promo2SinceWeek"])
+    )
+    month_abbr = df["Month"].map(_PROMO_INTERVAL_MONTH_ABBR)
+    in_promo_month = pd.Series(
+        [
+            abbr in interval.split(",") if interval else False
+            for abbr, interval in zip(month_abbr, df["PromoInterval"])
+        ],
+        index=df.index,
+    )
+    df["Promo2Active"] = ((df["Promo2"] == 1) & started & in_promo_month).astype(int)
+    return df
+
+
+def add_competition_open_months(df):
+    """Months since a nearby competitor opened, as of this row's Date.
+    NaN when the open date itself is unknown (see CompetitionOpenUnknown
+    in clean_store) rather than fabricating one; clipped at 0 when the
+    competitor hasn't opened yet as of this date. Requires Year/Month
+    from add_date_features.
+    """
+    df = df.copy()
+    months_since = 12 * (df["Year"] - df["CompetitionOpenSinceYear"]) + (
+        df["Month"] - df["CompetitionOpenSinceMonth"]
+    )
+    df["CompetitionOpenMonths"] = months_since.clip(lower=0)
+    return df
+
+
 def time_based_split(df, weeks_holdout=6):
     """Split a date-indexed dataframe into train/validation by time, with
     no shuffling: the most recent `weeks_holdout` weeks become validation.
@@ -121,6 +168,19 @@ if __name__ == "__main__":
     )
 
     train_store = add_date_features(train_store)
+    train_store = add_promo_holiday_features(train_store)
+    train_store = add_competition_open_months(train_store)
+
+    print("Promo2Active rate among Promo2==1 rows:", train_store.loc[train_store["Promo2"] == 1, "Promo2Active"].mean())
+    print("Promo2Active among Promo2==0 rows (should be 0):", train_store.loc[train_store["Promo2"] == 0, "Promo2Active"].sum())
+    print("IsStateHoliday rate:", train_store["IsStateHoliday"].mean())
+    print(
+        "CompetitionOpenMonths: nulls =",
+        train_store["CompetitionOpenMonths"].isna().sum(),
+        ", min =", train_store["CompetitionOpenMonths"].min(),
+        ", max =", train_store["CompetitionOpenMonths"].max(),
+    )
+
     train_fe, val_fe = time_based_split(train_store, weeks_holdout=6)
     dow_open_rate = compute_dow_open_rate(train_fe)
     train_fe = add_unusual_open_flag(train_fe, dow_open_rate)
