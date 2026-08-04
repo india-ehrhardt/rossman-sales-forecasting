@@ -4,10 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repo is an early-stage scaffold. `src/`, `notebooks/`, `dashboard/`, and `models/` currently contain no
-files — only `data/` is populated (raw Kaggle CSVs). When implementing features, you are largely establishing
-the code in these directories for the first time rather than following existing conventions, so check the
-current directory contents before assuming any file (e.g. `dashboard/app.py`) already exists.
+This repo is an early-stage scaffold. `dashboard/` and `models/` currently contain no files; `src/` and
+`notebooks/` have just started to fill in (`src/data_prep.py`, `notebooks/01_eda.ipynb`). When implementing
+features in the still-empty directories, check current contents before assuming a file (e.g.
+`dashboard/app.py`) already exists.
+
+## Workflow: commit and push after meaningful work
+
+After finishing any meaningful unit of work — a cleaning step, a set of EDA cells, a model change, a
+dashboard change — proactively commit and push to GitHub. Don't wait to be asked.
+
+- Write a clear, descriptive commit message (what changed and why, not just what file).
+- Still show the diff/`git status` and the exact commands you're about to run, and wait for approval before
+  executing `git commit`/`git push` — this rule authorizes doing the work unprompted, not skipping the
+  confirmation step.
+- If a notebook was touched, re-execute it (e.g. via `jupyter nbconvert --execute --inplace`) and confirm no
+  cell errors before committing, so committed notebooks always reflect a clean run.
 
 ## The project
 
