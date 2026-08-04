@@ -143,6 +143,26 @@ def add_unusual_open_flag(df, dow_open_rate, threshold=0.5):
     return df
 
 
+def build_features(weeks_holdout=6):
+    """Run the full cleaning + feature engineering pipeline and return
+    (train_fe, val_fe) split by time, with every engineered feature
+    applied to both. The single entry point used by training scripts
+    and the dashboard, so the pipeline is defined in one place.
+    """
+    train, test, store = load_raw()
+    store_clean = clean_store(store)
+    train_store = build_train_store(train, store_clean)
+    train_store = add_date_features(train_store)
+    train_store = add_promo_holiday_features(train_store)
+    train_store = add_competition_open_months(train_store)
+
+    train_fe, val_fe = time_based_split(train_store, weeks_holdout=weeks_holdout)
+    dow_open_rate = compute_dow_open_rate(train_fe)
+    train_fe = add_unusual_open_flag(train_fe, dow_open_rate)
+    val_fe = add_unusual_open_flag(val_fe, dow_open_rate)
+    return train_fe, val_fe
+
+
 if __name__ == "__main__":
     train, test, store = load_raw()
 

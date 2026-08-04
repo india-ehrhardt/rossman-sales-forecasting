@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repo is an early-stage scaffold. `dashboard/` and `models/` currently contain no files; `src/` and
-`notebooks/` have started to fill in (`src/data_prep.py` for cleaning/feature engineering, `src/model.py`
-for baseline + LightGBM training/evaluation, `notebooks/01_eda.ipynb`). When implementing features in the
-still-empty directories, check current contents before assuming a file (e.g. `dashboard/app.py`) already
-exists.
+All the top-level directories from the intended structure now have content: `src/data_prep.py` (cleaning +
+feature engineering, including `build_features()` as the single pipeline entry point), `src/model.py`
+(baseline + LightGBM training/evaluation), `src/train.py` (trains and saves the model to
+`models/lightgbm_model.pkl` via joblib), `notebooks/01_eda.ipynb`, and `dashboard/app.py` (Streamlit app —
+store selector, predicted vs. actual chart, feature importance, underperforming-stores table). Check current
+file contents before assuming behavior, since this is still an early, evolving codebase.
 
 ## Workflow: commit and push after meaningful work
 
@@ -44,7 +45,8 @@ Without it, `import lightgbm` fails with an `OSError: ... Library not loaded: @r
 streamlit run dashboard/app.py
 ```
 
-(This file does not exist yet — create it when building the dashboard.)
+The dashboard loads `models/lightgbm_model.pkl` — run `python src/train.py` first if it is missing (e.g.
+after a fresh clone, since the trained model is committed but a from-scratch retrain needs this step).
 
 ## Tech stack
 
