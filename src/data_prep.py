@@ -54,6 +54,48 @@ def build_train_store(train, store):
     return train.merge(store, on="Store", how="left")
 
 
+def add_date_features(df):
+    """Derive Year/Month/Day/DayOfWeek from Date. DayOfWeek uses the ISO
+    convention (1=Monday..7=Sunday) to match the raw Kaggle column."""
+    df = df.copy()
+    df["Year"] = df["Date"].dt.year
+    df["Month"] = df["Date"].dt.month
+    df["Day"] = df["Date"].dt.day
+    df["DayOfWeek"] = df["Date"].dt.weekday + 1
+    return df
+
+
+def time_based_split(df, weeks_holdout=6):
+    """Split a date-indexed dataframe into train/validation by time, with
+    no shuffling: the most recent `weeks_holdout` weeks become validation.
+    """
+    cutoff = df["Date"].max() - pd.Timedelta(weeks=weeks_holdout)
+    train_split = df[df["Date"] <= cutoff].copy()
+    val_split = df[df["Date"] > cutoff].copy()
+    return train_split, val_split
+
+
+def compute_dow_open_rate(df):
+    """Per-store, per-day-of-week fraction of days the store is open.
+    Fit this on training data only, then apply to validation/test, so a
+    store's usual-open pattern doesn't leak in from the holdout period.
+    """
+    return df.groupby(["Store", "DayOfWeek"])["Open"].mean()
+
+
+def add_unusual_open_flag(df, dow_open_rate, threshold=0.5):
+    """Flag rows where a store is open on a day of week it is usually
+    closed on (its historical open rate for that store/day-of-week is
+    below `threshold`) — e.g. a store that almost never opens on Sundays
+    but does on this particular date.
+    """
+    df = df.copy()
+    key = pd.MultiIndex.from_frame(df[["Store", "DayOfWeek"]])
+    typical_rate = pd.Series(key.map(dow_open_rate), index=df.index)
+    df["UnusualOpenDay"] = ((df["Open"] == 1) & (typical_rate.fillna(0) < threshold)).astype(int)
+    return df
+
+
 if __name__ == "__main__":
     train, test, store = load_raw()
 
@@ -77,3 +119,15 @@ if __name__ == "__main__":
         "store CompetitionOpenSinceMonth/Year nulls remaining:",
         store_clean[["CompetitionOpenSinceMonth", "CompetitionOpenSinceYear"]].isna().sum().to_dict(),
     )
+
+    train_store = add_date_features(train_store)
+    train_fe, val_fe = time_based_split(train_store, weeks_holdout=6)
+    dow_open_rate = compute_dow_open_rate(train_fe)
+    train_fe = add_unusual_open_flag(train_fe, dow_open_rate)
+    val_fe = add_unusual_open_flag(val_fe, dow_open_rate)
+
+    print("train_fe date range:", train_fe["Date"].min(), "to", train_fe["Date"].max())
+    print("val_fe date range:", val_fe["Date"].min(), "to", val_fe["Date"].max())
+    print("train_fe/val_fe shapes:", train_fe.shape, val_fe.shape)
+    print("train_fe UnusualOpenDay flagged:", train_fe["UnusualOpenDay"].sum())
+    print("val_fe UnusualOpenDay flagged:", val_fe["UnusualOpenDay"].sum())
