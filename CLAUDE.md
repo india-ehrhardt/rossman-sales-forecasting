@@ -51,12 +51,31 @@ CSVs are gitignored (too large to commit) and would not exist in a deployed envi
 Community Cloud. If those parquet files are missing (e.g. after changing the feature/model pipeline), run
 `python src/train.py` to regenerate them alongside `models/lightgbm_model.pkl`.
 
+Layout: store selector and underperforming-threshold slider live in the sidebar; the main area has a KPI
+row (`st.metric` with deltas — avg. daily sales, model accuracy, underperforming store count) above three
+tabs (Forecast, Feature Importance, Underperforming Stores). Charts are Plotly (`go.Figure`, not
+matplotlib) so hover/zoom/range-slider work; `st.plotly_chart`'s default `theme="streamlit"` makes them
+follow the active light/dark theme automatically — don't hardcode a paper/plot background color on the
+figures, or that auto-theming breaks.
+
+## Custom theme (`.streamlit/config.toml`)
+
+Defines both `[theme.light]` and `[theme.dark]` (extending the base `[theme]`), which is what makes
+Streamlit's own System/Light/Dark toggle (in the app's `⋮` menu) show real content instead of the default
+theme in both states. Accent/positive/negative colors (`primaryColor`, `greenColor`, `redColor`) are shared
+across both — `greenColor`/`redColor` are what `st.metric`'s delta arrows use, not just decorative
+"palette" colors, so don't rename or drop them without checking the KPI row. Font is Inter, loaded via
+`[[theme.fontFaces]]` pointing at pinned `@fontsource/inter` files on jsDelivr (not the simpler
+`font = "Inter:<google fonts css url>"` shortcut) — that was a deliberate choice, keep it that way rather
+than "simplifying" back to the CSS-URL form.
+
 ## Tech stack
 
 - pandas / numpy / scikit-learn for data handling and modeling
 - LightGBM for the forecasting model (per README; XGBoost mentioned as an alternative)
-- matplotlib / seaborn for EDA plots
+- matplotlib / seaborn for EDA plots in the notebook
 - Streamlit for the dashboard, deployed on Streamlit Community Cloud
+- Plotly for the dashboard's own charts (interactive hover/zoom) — the notebook still uses matplotlib
 - joblib for model serialization
 - pyarrow for the parquet files the dashboard reads
 
