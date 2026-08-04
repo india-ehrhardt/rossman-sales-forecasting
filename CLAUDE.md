@@ -45,8 +45,11 @@ Without it, `import lightgbm` fails with an `OSError: ... Library not loaded: @r
 streamlit run dashboard/app.py
 ```
 
-The dashboard loads `models/lightgbm_model.pkl` — run `python src/train.py` first if it is missing (e.g.
-after a fresh clone, since the trained model is committed but a from-scratch retrain needs this step).
+The dashboard reads only `data/val_predictions.parquet` and `data/feature_importance.parquet` — both
+committed, both small. It does **not** load `train.csv`/`store.csv` or the model at runtime, since those raw
+CSVs are gitignored (too large to commit) and would not exist in a deployed environment like Streamlit
+Community Cloud. If those parquet files are missing (e.g. after changing the feature/model pipeline), run
+`python src/train.py` to regenerate them alongside `models/lightgbm_model.pkl`.
 
 ## Tech stack
 
@@ -55,6 +58,7 @@ after a fresh clone, since the trained model is committed but a from-scratch ret
 - matplotlib / seaborn for EDA plots
 - Streamlit for the dashboard, deployed on Streamlit Community Cloud
 - joblib for model serialization
+- pyarrow for the parquet files the dashboard reads
 
 ## Data (`data/`)
 
@@ -66,6 +70,10 @@ Raw Kaggle CSVs, not committed transformations:
 - `sample_submission.csv` — `Id, Sales` submission format
 
 `Sales` is the prediction target; `train.csv` and `test.csv` join to `store.csv` on `Store`.
+
+Also in `data/`, but committed (small, not gitignored): `val_predictions.parquet` (Store/Date/Sales/Open/
+Predicted for the validation holdout) and `feature_importance.parquet` (Feature/Gain) — both written by
+`src/train.py` and read by the dashboard instead of the raw CSVs.
 
 ## Intended structure (per README)
 

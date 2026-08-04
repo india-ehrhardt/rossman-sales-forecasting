@@ -1,18 +1,12 @@
-import sys
 from pathlib import Path
 
-import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
-SRC_DIR = Path(__file__).resolve().parent.parent / "src"
-sys.path.append(str(SRC_DIR))
-
-from data_prep import build_features  # noqa: E402
-from model import predict_open_rows  # noqa: E402
-
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "lightgbm_model.pkl"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+VAL_PREDICTIONS_PATH = DATA_DIR / "val_predictions.parquet"
+FEATURE_IMPORTANCE_PATH = DATA_DIR / "feature_importance.parquet"
 
 BLUE = "#2a78d6"
 ORANGE = "#eb6834"
@@ -37,28 +31,29 @@ def _despine(ax):
     ax.spines["right"].set_visible(False)
 
 
-@st.cache_resource
-def load_model():
-    if not MODEL_PATH.exists():
-        st.error(f"No trained model found at {MODEL_PATH}. Run `python src/train.py` first.")
+def _require(path):
+    if not path.exists():
+        st.error(f"No precomputed data found at {path}. Run `python src/train.py` first.")
         st.stop()
-    return joblib.load(MODEL_PATH)
 
 
 @st.cache_data
 def load_val_predictions():
-    _, val_fe = build_features()
-    model = load_model()
-    val_fe = val_fe.copy()
-    val_fe["Predicted"] = predict_open_rows(model, val_fe)
-    return val_fe
+    _require(VAL_PREDICTIONS_PATH)
+    return pd.read_parquet(VAL_PREDICTIONS_PATH)
+
+
+@st.cache_data
+def load_feature_importance():
+    _require(FEATURE_IMPORTANCE_PATH)
+    return pd.read_parquet(FEATURE_IMPORTANCE_PATH)
 
 
 st.set_page_config(page_title="Rossmann Sales Forecast", layout="wide")
 st.title("Rossmann Sales Forecast")
 
-model = load_model()
 val_fe = load_val_predictions()
+feature_importance = load_feature_importance()
 holdout_start, holdout_end = val_fe["Date"].min().date(), val_fe["Date"].max().date()
 st.caption(f"Forecasted vs. actual sales over the validation holdout ({holdout_start} to {holdout_end}).")
 
@@ -80,8 +75,8 @@ plt.tight_layout()
 st.pyplot(fig)
 
 st.subheader("What drives the forecast: feature importance")
-importance = pd.Series(model.feature_importance(importance_type="gain"), index=model.feature_name())
-importance_pct = (importance / importance.sum() * 100).sort_values(ascending=True)
+importance_pct = feature_importance.set_index("Feature")["Gain"]
+importance_pct = (importance_pct / importance_pct.sum() * 100).sort_values(ascending=True)
 
 fig2, ax2 = plt.subplots(figsize=(8, 6))
 ax2.barh(importance_pct.index, importance_pct.values, color=BLUE)
