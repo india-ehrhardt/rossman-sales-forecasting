@@ -5,9 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project status
 
 This repo is an early-stage scaffold. `dashboard/` and `models/` currently contain no files; `src/` and
-`notebooks/` have just started to fill in (`src/data_prep.py`, `notebooks/01_eda.ipynb`). When implementing
-features in the still-empty directories, check current contents before assuming a file (e.g.
-`dashboard/app.py`) already exists.
+`notebooks/` have started to fill in (`src/data_prep.py` for cleaning/feature engineering, `src/model.py`
+for baseline + LightGBM training/evaluation, `notebooks/01_eda.ipynb`). When implementing features in the
+still-empty directories, check current contents before assuming a file (e.g. `dashboard/app.py`) already
+exists.
 
 ## Workflow: commit and push after meaningful work
 
@@ -33,6 +34,9 @@ stores.
 ```bash
 pip install -r requirements.txt
 ```
+
+On macOS, LightGBM also needs the OpenMP runtime, which is not a pip package: `brew install libomp`.
+Without it, `import lightgbm` fails with an `OSError: ... Library not loaded: @rpath/libomp.dylib`.
 
 ## Running the dashboard
 
